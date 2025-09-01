@@ -49,9 +49,10 @@
 
       // ▼ 自作HTML (C*)
       { label: 'C1 — お気に入り縮小版 (ローカル)', url: 'my_favorite_mini.html' },
-      { label: 'C2 — お気に入り縮小版 (外部リンク)', url: 'https://example.com/mini.html' },
+      { label: 'C2 — お気に入り縮小版 (Pages)', url: 'https://hatoniwa.github.io/movideo/my_favorite_mini.html?v=20250901' },
+      { label: 'C3 — 1曲追加 (Pages)', url: 'https://hatoniwa.github.io/movideo/1曲追加.html?v=20250901' },
 
-      // ▼ C5 — Pagesで公開されたゲーム（index.html）
+      // ▼ C5 — Pharaoh-game（別リポジトリ）
       { label: 'C5 — 百人一首ゲーム（GitHub Pages）', url: 'https://hatoniwa.github.io/Pharaoh-game/?v=20250901' }
     ];
 
@@ -93,9 +94,6 @@
 
     playBtn.addEventListener('click', playSelected);
     stopBtn.addEventListener('click', stopPlayer);
-
-    // 自動再生はモバイルで止められがちなので実行しない
-    // playSelected();
   </script>
 </body>
 </html>
