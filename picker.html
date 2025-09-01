@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pick → YouTube/HTML再生</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#111; --ui:#1a1a1a; --fg:#fff; --bd:#333; --accent:#ffd54a; --accentText:#111; --r:10px; }
+    body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui;display:flex;min-height:100vh;align-items:center;justify-content:center}
+    .app{width:min(800px,95vw);padding:16px}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+    select,button{background:var(--ui);color:var(--fg);border:1px solid var(--bd);border-radius:var(--r);padding:8px 12px;cursor:pointer}
+    button.primary{background:var(--accent);color:var(--accentText);border-color:#cc9}
+    .stage{position:relative;aspect-ratio:16/9;background:#000;border:1px solid #222;border-radius:12px;overflow:hidden}
+    iframe{width:100%;height:100%;display:block;border:0}
+    small{color:#bbb}
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="bar">
+      <label>Pick
+        <select id="pick"></select>
+      </label>
+      <button id="play" class="primary">▶ 再生</button>
+      <button id="stop">⏹ 停止</button>
+    </div>
+
+    <div class="stage">
+      <iframe id="player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+    </div>
+
+    <p><small>※モバイルは自動再生が制限されるため、必ず「再生」ボタンを押してください。</small></p>
+  </main>
+
+  <script>
+    const items = [
+      // ▼ 音楽 (A*)
+      { label: 'A1 — ワインレッドの心', url: 'https://youtu.be/jNvYRdQfoWA' },
+      { label: 'A2 — 地上の星（中島みゆき）', url: 'https://youtube.com/watch?v=v2SlpjCz7uE' },
+      { label: 'A3 — 地上の星（AI演歌歌手）', url: 'https://youtube.com/watch?v=KIuvkjfcqnE' },
+      { label: 'A4 — 聖母たちのララバイ（AIカバー）', url: 'https://youtube.com/watch?v=iSj7rw9AmZ8' },
+      { label: 'B1 — 雨の御堂筋（AI演歌歌手）', url: 'https://youtube.com/watch?v=eUtoo78SkfU' },
+
+      // ▼ 解説動画 (B*)
+      { label: 'B2 — 2025年最新！YouTubeの始め方', url: 'https://youtube.com/watch?v=8oIMKcGPgB0' },
+      { label: 'B3 — YouTube 再生リストの作り方！', url: 'https://youtube.com/watch?v=aNthLKKMDk4' },
+      { label: 'B4 — URLを変えるだけ！PDFで共有する方法', url: 'https://youtube.com/watch?v=LaXVm2D7QJU' },
+
+      // ▼ 自作HTML (C*)
+      { label: 'C1 — お気に入り縮小版 (ローカル)', url: 'my_favorite_mini.html' },
+      { label: 'C2 — お気に入り縮小版 (外部リンク)', url: 'https://example.com/mini.html' },
+
+      // ▼ C5 — Pagesで公開されたゲーム（index.html）
+      { label: 'C5 — 百人一首ゲーム（GitHub Pages）', url: 'https://hatoniwa.github.io/Pharaoh-game/?v=20250901' }
+    ];
+
+    function toEmbedURL(url) {
+      try {
+        const u = new URL(url);
+        if (u.hostname.includes('youtu.be')) {
+          const id = u.pathname.slice(1);
+          if (id) return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&modestbranding=1`;
+        }
+        if (u.hostname.includes('youtube.com')) {
+          const id = u.searchParams.get('v');
+          if (id) return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1&modestbranding=1`;
+        }
+      } catch (e) {}
+      return url; // HTML等はそのまま
+    }
+
+    const pick = document.getElementById('pick');
+    const player = document.getElementById('player');
+    const playBtn = document.getElementById('play');
+    const stopBtn = document.getElementById('stop');
+
+    items.forEach((item, index) => {
+      const opt = document.createElement('option');
+      opt.value = index;
+      opt.textContent = item.label;
+      pick.appendChild(opt);
+    });
+
+    function playSelected() {
+      const selectedItem = items[Number(pick.value)];
+      const embedUrl = toEmbedURL(selectedItem.url);
+      player.src = embedUrl;
+    }
+    function stopPlayer() {
+      player.src = ''; // ← 確実に停止
+    }
+
+    playBtn.addEventListener('click', playSelected);
+    stopBtn.addEventListener('click', stopPlayer);
+
+    // 自動再生はモバイルで止められがちなので実行しない
+    // playSelected();
+  </script>
+</body>
+</html>
