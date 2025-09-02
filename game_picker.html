@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Game Pick → Preview / Fullscreen</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{ --bg:#111; --ui:#1a1a1a; --fg:#fff; --bd:#333; --accent:#ffd54a; --accentText:#111; }
+    *{ box-sizing:border-box }
+    body{ margin:0; background:var(--bg); color:var(--fg); font-family:system-ui;
+          min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; }
+    .app{ width:min(900px,95vw); }
+    .bar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+    select,button{ background:var(--ui); color:var(--fg); border:1px solid var(--bd); border-radius:10px; padding:8px 12px; cursor:pointer; }
+    button.primary{ background:var(--accent); color:var(--accentText); border-color:#cc9; }
+    .stage{ position:relative; aspect-ratio:16/9; background:#000; border:1px solid #222; border-radius:12px; overflow:hidden; }
+    iframe{ width:100%; height:100%; display:block; border:0; }
+    .note{ color:#bbb; font-size:12px; margin:6px 0 0 }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="bar">
+      <label>Pick
+        <select id="pick"></select>
+      </label>
+      <button id="show" class="primary">▶ Show（プレビュー）</button>
+      <button id="open" title="新しいタブで全画面表示">↗ Fullscreen</button>
+    </div>
+
+    <div class="stage">
+      <iframe id="frame" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+    </div>
+
+    <p class="note">※ プレビューで確認し、↗ Fullscreenで新しいタブに全画面表示します。</p>
+  </main>
+
+<script>
+  // ▼ ここに “ゲームHTMLだけ” を並べます（増やす/順番変更OK）
+  const items = [
+    { label: 'C5 — 百人一首ゲーム（Pharaoh-game ホーム）',
+      url: 'https://hatoniwa.github.io/Pharaoh-game/?v=20250901' },
+
+    // もし “独自index.html” を Pharaoh-game に置いているなら（あれば活かしてください）
+    { label: 'C5-独自 — dualPanels / 独自index',
+      url: 'https://hatoniwa.github.io/Pharaoh-game/独自index.html?v=20250901' },
+
+    // 例：将来の追加（英数字ファイル名推奨）
+    // { label: 'C6 — 新ステージ（例）', url: 'https://hatoniwa.github.io/Pharaoh-game/stage2.html?v=20250901' },
+  ];
+
+  const pick = document.getElementById('pick');
+  const frame = document.getElementById('frame');
+  const btnShow = document.getElementById('show');
+  const btnOpen = document.getElementById('open');
+
+  // 初期化：セレクト作成
+  items.forEach((it, i)=>{
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = it.label;
+    pick.appendChild(opt);
+  });
+  pick.value = 0;
+
+  function preview(){
+    const it = items[Number(pick.value)];
+    frame.src = it.url; // HTMLはそのままiframeでOK
+  }
+  function openNewTab(){
+    const it = items[Number(pick.value)];
+    window.open(it.url, '_blank');
+  }
+
+  btnShow.addEventListener('click', preview);
+  btnOpen.addEventListener('click', openNewTab);
+
+  // 初期プレビュー（好みで無効化可）
+  preview();
+</script>
+</body>
+</html>
