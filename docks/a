@@ -1,3 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Orb → Ring + Growing Glyph</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  /* ===== Theme (colors only) ===== */
+  :root{
+    /* Red-amber (default) */
+    --core-c0: rgba(220, 60,40,.72);
+    --core-c1: rgba(180, 30,30,.66);
+    --core-c2: rgba(120, 16,16,.50);
+    --ring-c : rgba(200,  0, 0,.62);
+    --overlay-bg: rgba(0,0,0,.82);
+    --vignette-a: rgba(45,0,0,.14);
 
+    --start-btn-bg: rgba(230,230,230,0.9);
+    --start-btn-fg: #32cd32;
+    --notice-btn-bg:#2ecc71; /* Emerald */
+  }
+    <body>
+  <div id="container">
+
+  }
+
+  body.theme-blueflare{
+    --core-c0: rgba(90,160,255,.72);
+    --core-c1: rgba(40,100,200,.62);
+    --core-c2: rgba(20,40,100,.45);
+    --ring-c : rgba(80,130,220,.60);
+    --overlay-bg: rgba(0,0,20,.85);
+    --vignette-a: rgba(0,20,60,.20);
+  }
+
+  html,body{ margin:0; height:100%; background:#000; }
+  body{
+    display:flex; justify-content:center; align-items:center;
+    overflow:hidden; -webkit-tap-highlight-color:transparent; color:#fff;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans JP", sans-serif;
+  }
+  #container{ position:relative; width:360px; height:640px; background:#000; }
+  video{ width:100%; height:100%; display:block; }
+
+  /* notice */
+  #notice{
+    position:absolute; inset:0; background:rgba(0,0,0,.85);
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    text-align:center; padding:20px; gap:12px; z-index:5;
+    font-size:22px; font-weight:700; color:#ffd54a;
+    opacity:0; transition:opacity .8s ease; pointer-events:none;
+  }
+  #notice.show{ opacity:1; pointer-events:auto; }
+
+  .notice-btn{
+    display:inline-block; padding:12px 20px; margin-top:4px;
+    background: var(--notice-btn-bg); color:#fff; text-decoration:none;
+    border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.4);
+    font-size:18px; font-weight:700; line-height:1.2; text-align:center;
+    transition:background .2s, transform .1s; cursor:pointer;
+    touch-action:manipulation;
+  }
+  .notice-btn:hover{ background:#58d68d; }
+  .notice-btn:active{ transform:translateY(2px); }
+
+  /* left-bottom Tap */
+  #startBtn{
+    position:absolute; bottom:20px; left:20px; z-index:10;
+    background:var(--start-btn-bg); color:var(--start-btn-fg);
+    border:1px solid #bdbdbd; border-radius:10px;
+    padding:12px 18px; font-size:16px; font-weight:700;
+    cursor:pointer; user-select:none; backdrop-filter: blur(2px);
+    box-shadow:0 2px 6px rgba(0,0,0,.25); touch-action:manipulation;
+  }
+  #startBtn:active{ transform:translateY(1px); }
+  #startBtn:focus{ outline:2px solid var(--start-btn-fg); outline-offset:2px; }
+
+  /* ===== Orb → Ring (Fullscreen overlay) ===== */
+  #portal{
+    position:fixed; inset:0; display:none; z-index:999;
+    pointer-events:none; opacity:0; background:var(--overlay-bg); overflow:hidden;
+  }
+  #portal.show{ display:block; animation: portalFadeIn 520ms ease-out forwards; }
+  @keyframes portalFadeIn { from{opacity:0} to{opacity:1} }
+
+  /* soft vignette */
+  #portal::before{
+    content:""; position:absolute; inset:-12%;
+    background: radial-gradient(ellipse at center,
+      var(--vignette-a) 0%,
+      rgba(0,0,0,.70) 72%,
+      rgba(0,0,0,.92) 100%);
+    transform: scale(1.08);
+  }
+
+  .fx{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+
+  /* Phase 1: Orb */
+  .orb{
+    width:90px; height:90px; border-radius:50%;
+    background: radial-gradient(circle,
+      var(--core-c0) 0%,
+      var(--core-c1) 42%,
+      var(--core-c2) 68%,
+      rgba(0,0,0,0) 84%
+    );
+    filter: blur(.28px);
+    box-shadow: 0 0 38px rgba(255,255,255,.06), 0 0 86px rgba(0,0,0,.10);
+    animation: orbRise 2100ms cubic-bezier(.22,.61,.22,1) forwards;
+  }
+  @keyframes orbRise{
+    0%   { transform: scale(.32); opacity:0; }
+    14%  { opacity:.96; }
+    60%  { transform: scale(1.32); opacity:.90; }
+    100% { transform: scale(1.55); opacity:.22; }
+  }
+
+  /* Phase 2: Ring */
+  .ring{
+    position:absolute; inset:0; margin:auto;
+    width:78px; height:78px; border-radius:50%;
+    background: radial-gradient(circle,
+      rgba(0,0,0,0) 56%,
+      var(--ring-c) 59%,
+      rgba(0,0,0,0) 62%
+    );
+    box-shadow: 0 0 26px rgba(0,0,0,.18), 0 0 58px rgba(0,0,0,.10);
+    opacity:0;
+    animation: ringExpand 2400ms ease-out forwards;
+    animation-delay: 1050ms;
+  }
+  @keyframes ringExpand{
+    0%   { transform: scale(.74); opacity:0; }
+    12%  { opacity:.96; }
+    70%  { opacity:.92; }
+    100% { transform: scale(11); opacity:0; }
+  }
+
+  /* ===== Added: Growing Glyph ===== */
+  #glyph{
+    position:absolute; inset:0; display:grid; place-items:center; pointer-events:none;
+  }
+  #glyph span{
+    display:inline-block;
+    font-weight:900; line-height:1;
+    color:#ffd700; /* gold */
+    text-shadow:0 0 18px rgba(255,215,0,.95), 0 0 42px rgba(255,165,0,.55);
+    filter: drop-shadow(0 0 10px rgba(0,0,0,.5));
+    transform: scale(.20);
+    opacity: 0;
+    font-size: clamp(96px, 22vw, 260px);
+    will-change: transform, opacity;
+  }
+  #portal.show #glyph span{
+    animation: glyphGrow 2400ms cubic-bezier(.22,.61,.22,1) forwards;
+    animation-delay: 1050ms; /* sync with ring */
+  }
+  @keyframes glyphGrow{
+    0%   { transform: scale(.20); opacity: 0; }
+    10%  { opacity: .85; }
+    55%  { transform: scale(1.22); opacity: 1; }
+    70%  { transform: scale(1.34); opacity: 1; }
+    100% { transform: scale(1.34); opacity: .98; } /* stop & hold */
+  }
+</style>
+</head>
+<body class="theme-blueflare">
+  <div id="container">
+    <video id="video" playsinline preload="metadata" muted>
+      <source src="practice.mp4" type="video/mp4" />
+      Your browser does not support the video tag.
+    </video>
+
+    <div id="notice" aria-hidden="true">
+      <div>👉 The next special door is open.<br/>You may see your friend again.</div>
+      <a href="gameA.html" id="portalBtn" class="notice-btn">Enter the<br/>Next Stage</a>
+    </div>
+
+    <button id="startBtn" type="button" aria-label="Play video">Tap Here</button>
+  </div>
+
+  <!-- Fullscreen overlay -->
+  <div id="portal">
+    <div class="fx" id="fx">
+      <div class="orb"></div>
+      <div class="ring"></div>
+    </div>
+    <!-- Added glyph -->
+    <div id="glyph"><span>A</span></div>
+  </div>
+
+<script>
+  const NEXT_URL      = 'redindex.html';
+  const NOTICE_OFFSET = 3;
+  const HOLD_MS       = 3800; // 文字を静止させて見せる時間を少し確保
+
+  const video     = document.getElementById('video');
+  const notice    = document.getElementById('notice');
+  const startBtn  = document.getElementById('startBtn');
+  const portal    = document.getElementById('portal');
+  const portalBtn = document.getElementById('portalBtn');
+  const fx        = document.getElementById('fx');
+  const container = document.getElementById('container');
+
+  let noticeTime = null, noticeShown = false;
+
+  function setNoticeTime(){
+    const d = Number.isFinite(video.duration) ? video.duration : 0;
+    noticeTime = Math.max(0, d - NOTICE_OFFSET);
+  }
+  if (video.readyState >= 1) setNoticeTime();
+  else video.addEventListener('loadedmetadata', setNoticeTime, { once:true });
+
+  video.addEventListener('timeupdate', () => {
+    if (!noticeShown && noticeTime != null && video.currentTime >= noticeTime){
+      notice.classList.add('show');
+      notice.setAttribute('aria-hidden','false');
+      noticeShown = true;
+    }
+  });
+  video.addEventListener('ended', () => {
+    if (!noticeShown){
+      notice.classList.add('show');
+      notice.setAttribute('aria-hidden','false');
+      noticeShown = true;
+    }
+  });
+
+  startBtn.addEventListener('click', async () => {
+    try{
+      await video.play();
+      startBtn.style.display = 'none';
+      setTimeout(() => { video.volume = 0.12; video.muted = false; }, 150);
+    }catch(e){
+      video.muted = true;
+      startBtn.textContent = 'Tap again (silent)';
+    }
+  });
+
+  portalBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    notice.style.display = 'none';
+    portal.classList.add('show');
+
+    // fade audio
+    try {
+      const startVol = video.volume || 0;
+      const fadeMs = Math.min(HOLD_MS, 1200);
+      const steps = 16, step = startVol / steps;
+      let i = 0;
+      const t = setInterval(() => {
+        i++; video.volume = Math.max(0, startVol - step * i);
+        if (i >= steps) clearInterval(t);
+      }, fadeMs / steps);
+    } catch (_) {}
+
+    setTimeout(() => {
+      try { location.assign(NEXT_URL); }
+      catch { window.location.href = NEXT_URL; }
+    }, HOLD_MS);
+  });
+</script>
+</body>
+</html>
 
 
