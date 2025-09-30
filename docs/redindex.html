@@ -1,0 +1,247 @@
+<!-- Archive 2025-09-14 / index_trailer_red.html
+     Flow: Trailer(mp4 long) → last-3s notice → RED Orb→Ring → go to gameA.html
+     Note: No theme switch. Pure red handoff into Game A. -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Trailer → Game A (Red)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#000000" />
+<style>
+  /* ===== RED THEME ONLY ===== */
+  body{
+    --core-c0: rgba(220, 60,40,.72);
+    --core-c1: rgba(180, 30,30,.66);
+    --core-c2: rgba(120, 16,16,.50);
+    --ring-c : rgba(200,  0, 0,.62);
+    --overlay-bg: rgba(0,0,0,.82);
+    --vignette-a: rgba(45,0,0,.14);
+    --start-btn-bg: rgba(230,230,230,0.9);
+    --start-btn-fg: #32cd32;
+    --notice-btn-bg:#e74c3c; /* 赤系ボタン */
+  }
+
+  html,body{ margin:0; height:100%; background:#000; color:#fff;
+    display:flex; justify-content:center; align-items:center;
+    overflow:hidden; -webkit-tap-highlight-color:transparent;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans JP", sans-serif;
+  }
+  #container{ position:relative; width:360px; height:640px; background:#000; }
+  video{ width:100%; height:100%; display:block; }
+
+  /* last-3s notice */
+  #notice{
+    position:absolute; inset:0; background:rgba(0,0,0,.85);
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    text-align:center; padding:20px; gap:12px; z-index:5;
+    font-size:22px; font-weight:700; color:#ffd54a;
+    opacity:0; transition:opacity .8s ease; pointer-events:none;
+  }
+  #notice.show{ opacity:1; pointer-events:auto; }
+  .notice-btn{
+    display:inline-block; padding:12px 20px; margin-top:4px;
+    background:var(--notice-btn-bg); color:#fff; text-decoration:none;
+    border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,.4);
+    font-size:18px; font-weight:700; line-height:1.2; text-align:center;
+    transition:background .2s, transform .1s; cursor:pointer; touch-action:manipulation;
+  }
+  .notice-btn:hover{ filter:brightness(1.06); }
+  .notice-btn:active{ transform:translateY(2px); }
+
+  /* start btn */
+  #startBtn{
+    position:absolute; bottom:20px; left:20px; z-index:10;
+    background:var(--start-btn-bg); color:var(--start-btn-fg);
+    border:1px solid #bdbdbd; border-radius:10px;
+    padding:12px 18px; font-size:16px; font-weight:700;
+    cursor:pointer; user-select:none; backdrop-filter: blur(2px);
+    box-shadow:0 2px 6px rgba(0,0,0,.25); touch-action:manipulation;
+  }
+
+  /* overlay */
+  #portal{
+    position:fixed; inset:0; display:none; z-index:999;
+    pointer-events:none; opacity:0; background:var(--overlay-bg); overflow:hidden;
+  }
+  #portal.show{ display:block; animation: portalFadeIn 520ms ease-out forwards; }
+  @keyframes portalFadeIn { from{opacity:0} to{opacity:1} }
+
+  #portal::before{
+    content:""; position:absolute; inset:-12%;
+    background: radial-gradient(ellipse at center,
+      var(--vignette-a) 0%,
+      rgba(0,0,0,.70) 72%,
+      rgba(0,0,0,.92) 100%);
+    transform: scale(1.08);
+  }
+
+  .fx{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
+
+  .orb{
+    width:90px; height:90px; border-radius:50%;
+    background: radial-gradient(circle,
+      var(--core-c0) 0%,
+      var(--core-c1) 42%,
+      var(--core-c2) 68%,
+      rgba(0,0,0,0) 84%
+    );
+    filter: blur(.28px);
+    animation: orbRise 2100ms cubic-bezier(.22,.61,.22,1) forwards;
+  }
+  @keyframes orbRise{
+    0%   { transform: scale(.32); opacity:0; }
+    14%  { opacity:.96; }
+    60%  { transform: scale(1.32); opacity:.90; }
+    100% { transform: scale(1.55); opacity:.22; }
+  }
+
+  .ring{
+    position:absolute; inset:0; margin:auto;
+    width:78px; height:78px; border-radius:50%;
+    background: radial-gradient(circle,
+      rgba(0,0,0,0) 56%,
+      var(--ring-c) 59%,
+      rgba(0,0,0,0) 62%
+    );
+    opacity:0;
+    animation: ringExpand 2400ms ease-out forwards;
+    animation-delay: 1050ms;
+  }
+  @keyframes ringExpand{
+    0%   { transform: scale(.74); opacity:0; }
+    12%  { opacity:.96; }
+    70%  { opacity:.92; }
+    100% { transform: scale(11); opacity:0; }
+  }
+</style>
+</head>
+<body>
+  <div id="container">
+    <!-- 長い予告編動画（10枚以上でもOK） -->
+    <video id="video" playsinline preload="metadata" muted>
+      <source src="introA.mp4" type="video/mp4" />
+    </video>
+
+    <div id="notice" aria-hidden="true">
+      <div>👉 The final door is open.<br/>Please tap the link below.</div>
+      <a href="gameA.html" id="portalBtn" class="notice-btn">Enter the<br/>Next Stage</a>
+    </div>
+
+    <button id="startBtn" type="button" aria-label="Play video">Tap Here</button>
+  </div>
+
+  <!-- Fullscreen overlay（RED） -->
+  <div id="portal">
+    <div class="fx" id="fx">
+      <div class="orb"></div>
+      <div class="ring"></div>
+    </div>
+  </div>
+
+<script>
+  const NEXT_URL      = 'gameA.html';  // ← Aへ
+  const NOTICE_OFFSET = 3;
+  const HOLD_MS       = 3600;
+
+  const video     = document.getElementById('video');
+  const notice    = document.getElementById('notice');
+  const startBtn  = document.getElementById('startBtn');
+  const portal    = document.getElementById('portal');
+  const portalBtn = document.getElementById('portalBtn');
+  const fx        = document.getElementById('fx');
+  const container = document.getElementById('container');
+
+  let noticeTime = null, noticeShown = false, going = false;
+
+  // 予告編は明示的にループ禁止（誤解防止）
+  video.loop = false;
+
+  function setNoticeTime(){
+    const d = Number.isFinite(video.duration) ? video.duration : 0;
+    noticeTime = Math.max(0, d - NOTICE_OFFSET);
+  }
+  if (video.readyState >= 1) setNoticeTime();
+  else video.addEventListener('loadedmetadata', setNoticeTime, { once:true });
+
+  // ラストN秒で案内表示（赤テーマのまま）
+  video.addEventListener('timeupdate', () => {
+    if (!noticeShown && noticeTime != null && video.currentTime >= noticeTime){
+      notice.classList.add('show');
+      notice.setAttribute('aria-hidden','false');
+      noticeShown = true;
+
+      // 先読み（存在チェック兼ねるが、CORSで失敗してもOK）
+      try{
+        const pre = document.createElement('link');
+        pre.rel = 'prefetch'; pre.href = NEXT_URL;
+        document.head.appendChild(pre);
+      }catch(_){}
+    }
+  });
+
+  video.addEventListener('ended', () => {
+    if (!noticeShown){
+      notice.classList.add('show');
+      notice.setAttribute('aria-hidden','false');
+      noticeShown = true;
+    }
+  });
+
+  // 再生開始（モバイル）
+  startBtn.addEventListener('click', async () => {
+    try{
+      await video.play();
+      startBtn.style.display = 'none';
+      setTimeout(() => { video.volume = 0.12; video.muted = false; }, 150);
+    }catch(e){
+      video.muted = true;
+      startBtn.textContent = 'Tap again (silent)';
+    }
+  });
+
+  // 爆発位置＝枠の中央
+  function placeFxAtCenter(){
+    const rect = container.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+    fx.style.left = cx + 'px';
+    fx.style.top  = cy + 'px';
+  }
+
+  // 二重タップ防止＆遷移（赤のまま）
+  portalBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (going) return;
+    going = true;
+
+    notice.style.display = 'none';
+    placeFxAtCenter();
+    portal.classList.add('show');
+
+    // 音量フェード
+    try {
+      const startVol = video.volume || 0;
+      const fadeMs = Math.min(HOLD_MS, 1200);
+      const steps = 16, step = startVol / steps;
+      let i = 0;
+      const t = setInterval(() => {
+        i++; video.volume = Math.max(0, startVol - step * i);
+        if (i >= steps) clearInterval(t);
+      }, fadeMs / steps);
+    } catch (_) {}
+
+    setTimeout(() => {
+      try { location.assign(NEXT_URL); }
+      catch { window.location.href = NEXT_URL; }
+    }, HOLD_MS);
+  });
+
+  // リサイズ追随
+  window.addEventListener('resize', () => {
+    if (portal.classList.contains('show')) placeFxAtCenter();
+  });
+</script>
+</body>
+</html>

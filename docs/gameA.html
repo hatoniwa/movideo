@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hyakunin Isshu — Ultimate Viewer</title>
+<style>
+  :root{
+    --w:720px; --fg:#fff; --ui:#1a1a1a; --bd:#333; --acc:#ffd54a;
+    --btn:#ccc; --btnText:#3fa34d; --muted:#bbb; --shadow:0 8px 24px rgba(0,0,0,.35);
+    --aspect:56.25%;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:#101014; color:var(--fg);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", Meiryo, sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:18px;
+  }
+  .app{ width:min(var(--w), 96vw); }
+  .bar{
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 12px;
+  }
+  label, select, button{
+    background:var(--ui); color:#fff; border:1px solid var(--bd); border-radius:10px;
+    padding:8px 12px; font-size:14px;
+  }
+  select{ cursor:pointer }
+  button{ cursor:pointer }
+  .ghost{ opacity:.65 }
+
+  .stage{
+    position:relative; width:100%; border:1px solid #222; border-radius:14px;
+    background:#000; overflow:hidden; box-shadow:var(--shadow);
+  }
+  .stage::before{ content:""; display:block; padding-top:var(--aspect); } /* 16:9 */
+  .viewport{ position:absolute; inset:0; }
+
+  /* 単画像（偶数のフォールバックにも） */
+  #displayImg{ width:100%; height:100%; object-fit:contain; display:none; }
+
+  /* 49タイル（奇数＝絵） */
+  .grid7{ position:absolute; inset:0; display:none; }
+  .grid7 .tile{
+    position:absolute; background-repeat:no-repeat;
+    transition: transform 1.05s ease, opacity 1.05s ease;
+    will-change: transform, opacity;
+  }
+
+  /* 英訳テキストのオーバーレイ（偶数） */
+  .text-overlay{
+    position:absolute; inset:0; display:none;
+    flex-direction:column; justify-content:center; align-items:center; text-align:center;
+    padding:20px; background:rgba(0,0,0,.72); color:#fff; line-height:1.6; font-size:20px;
+    opacity:0; transition:opacity .45s ease;
+  }
+  .text-overlay p{ margin:0 }
+  .text-overlay .author{ margin-top:10px; color:var(--acc); font-style:italic; font-size:16px }
+
+  /* ヘルプ（最初だけ） */
+  .help{
+    position:absolute; inset:auto 12px 12px 12px; padding:10px 12px;
+    background:rgba(0,0,0,.65); border:1px solid #444; border-radius:10px; font-size:13px;
+    display:none;
+  }
+
+  /* 誘導（第三部など） */
+  .notice{
+    position:absolute; inset:0; display:none; flex-direction:column; gap:14px;
+    justify-content:center; align-items:center; text-align:center;
+    background:rgba(0,0,0,.85); color:#fff; font-weight:700; font-size:20px; padding:20px;
+  }
+  .notice a{
+    display:inline-block; padding:10px 14px; border-radius:8px; text-decoration:none;
+    background:var(--btn); color:var(--btnText); border:1px solid #999; font-weight:700;
+  }
+
+  /* 操作ボタン */
+  .tools{
+    position:absolute; left:12px; top:12px; display:flex; gap:6px; z-index:5;
+  }
+  .tools button{
+    background:#1b1b1f; border-color:#2f2f33; padding:6px 10px; border-radius:8px; font-size:13px;
+  }
+  .nav{
+    position:absolute; right:12px; top:12px; display:flex; gap:6px; z-index:5;
+  }
+  .nav button{ background:#1b1b1f; border-color:#2f2f33; padding:6px 10px; border-radius:8px; font-size:13px }
+
+  /* 最初のワンタップ（左下） */
+  #tapBtn{
+    position:absolute; left:16px; bottom:16px; z-index:6;
+    background:var(--btn); color:var(--btnText); border:1px solid #999; border-radius:10px;
+    font-weight:800; font-size:14px; padding:10px 14px;
+  }
+
+  /* 下部キャプション（現在位置など） */
+  .caption{
+    position:absolute; left:0; right:0; bottom:0; padding:10px 12px;
+    background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.65) 45%,rgba(0,0,0,.78) 100%);
+    font-size:13px; color:#ddd;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 上部バー -->
+  <div class="bar">
+    <label>Pick
+      <select id="pick">
+        <!-- TODO: 必要に応じて順序変更OK（奇数=絵 / 偶数=英訳） -->
+        <option value="A01">A01 — Komachi (art)</option>
+        <option value="A02">A02 — Komachi (EN)</option>
+        <option value="A03">A03 — Ryōzen (art)</option>
+        <option value="A04">A04 — Ryōzen (EN)</option>
+        <option value="A05">A05 — Sosei (art)</option>
+        <option value="A06">A06 — Sosei (EN)</option>
+        <option value="A07">A07 — Akahito (art)</option>
+        <option value="A08">A08 — Akahito (EN)</option>
+        <option value="A09">A09 — Atsutada (art)</option>
+        <option value="A10">A10 — Atsutada (EN)</option>
+        <option value="A11">A11 — Saigyō (art)</option>
+        <option value="A12">A12 — Saigyō (EN)</option>
+        <option value="A13">A13 — Ōe no Chisato (art)</option>
+        <option value="A14">A14 — Ōe no Chisato (EN)</option>
+        <option value="A15">A15 — Sagami (art)</option>
+        <option value="A16" selected>A16 — Sagami (EN)</option>
+      </select>
+    </label>
+
+    <label>Mode
+      <select id="mode">
+        <option value="auto" selected>Auto（odd=explode / even=text）</option>
+        <option value="explain">Explain only</option>
+        <option value="notice">👉 Check the description</option>
+      </select>
+    </label>
+
+    <span class="sp"></span>
+
+    <!-- ここは “お好みで” 機能ON/OFF -->
+    <label class="ghost"><input type="checkbox" id="autoPair" checked /> Pair advance</label>
+  </div>
+
+  <!-- ステージ -->
+  <div class="stage">
+    <div class="viewport" id="vp">
+
+      <!-- 左上ツール -->
+      <div class="tools">
+        <button id="speakJaBtn" title="Japanese voice">🔊 JA</button>
+        <button id="speakEnBtn" title="English voice">🔊 EN</button>
+        <button id="explainBtn" title="Show brief note">ℹ Explain</button>
+        <button id="openLinkBtn" title="Open next link">↗ Open</button>
+      </div>
+
+      <!-- 右上ナビ -->
+      <div class="nav">
+        <button id="prevBtn" title="Previous (←)">⏮ Prev</button>
+        <button id="nextBtn" title="Next (→)">⏭ Next</button>
+      </div>
+
+      <img id="displayImg" alt="">
+      <div id="grid" class="grid7"></div>
+      <div id="textOverlay" class="text-overlay"></div>
+
+      <div id="help" class="help">
+        Tap「Tap Here」to start.  
+        ⏮/⏭ to move, 🔊 to listen, ℹ to read note, ↗ opens the link.
+      </div>
+
+      <button id="tapBtn" type="button">Tap Here</button>
+
+      <div class="notice" id="notice">
+        👉 This is not the end!<br>
+        Please open the description link below.
+        <!-- TODO: 実URLに差し替え -->
+        <a id="noticeLink" href="https://hatoniwa.github.io/Pharaoh-game/part3_hub.html?v=DEMO" target="_blank" rel="noopener">Open Interactive Page ↗</a>
+      </div>
+
+      <div id="caption" class="caption"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========= コンテンツ ========= */
+
+/* 英訳テキスト（偶数キー） */
+const TEXT_DATA = {
+  "A02": `<p>The colors of flowers fade away in vain,<br>as in this fleeting world my life drifts on in rains.</p><p class="author">— Ono no Komachi</p>`,
+  "A04": `<p>Lonely, I stepped outside my hut and looked—<br>everywhere the same: an autumn evening.</p><p class="author">— Ryōzen Hōshi</p>`,
+  "A06": `<p>“I'll come tonight,” you said — so I stayed awake,<br>waiting for the long-month's dawning moon.</p><p class="author">— Sosei Hōshi</p>`,
+  "A08": `<p>At Tago Bay I came out and beheld:<br>pure white snow on Fuji’s lofty peak.</p><p class="author">— Yamabe no Akahito</p>`,
+  "A10": `<p>Compared with how my heart has been since we met,<br>in former days I scarcely knew longing.</p><p class="author">— Fujiwara no Atsutada</p>`,
+  "A12": `<p>“Lament!”—does the moon make me grieve?<br>No—my tears themselves blame the moon.</p><p class="author">— Saigyō</p>`,
+  "A14": `<p>Seeing the moon, a thousand sorrows surge—<br>though autumn is not mine alone.</p><p class="author">— Ōe no Chisato</p>`,
+  "A16": `<p>Weary of resentment, though even dry sleeves remain,<br>my name will wither away in love’s decay.</p><p class="author">— Sagami</p>`
+};
+
+/* 短い解説（ℹボタンで3秒表示） */
+const NOTES_DATA = {
+  "A02": "Komachi’s poem on impermanence—colors fading = life’s ephemerality.",
+  "A04": "A hut, a glance, and the whole world is evening—wabi-sabi of solitude.",
+  "A06": "Love meets time: waiting through the ‘long month’ for the moon that never comes.",
+  "A08": "Tago Bay frame opens to the iconic, snow-capped Fuji: awe in clarity.",
+  "A10": "Only after love does ‘longing’ gain its weight—an awakening of the heart.",
+  "A12": "Who causes sorrow? The moon, or the self that projects onto it.",
+  "A14": "Shared autumn: private sadness meets universal season.",
+  "A16": "Reputation erodes under love’s storms—name and feeling entwined."
+};
+
+/* （任意）日本語音声mp3直リンク：あればTTSより優先
+   例: AUDIO_JA["A02"] = "https://.../A02_ja.mp3";
+*/
+const AUDIO_JA = {};
+
+/* 次リンク（↗ Open）— YouTube説明欄のリンク先に合わせて */
+const NEXT_LINK_FOR = (key)=> {
+  // TODO: 実運用では作品ごとに分けたい場合ここで分岐
+  return "letterB.html";
+};
+
+/* ========= ユーティリティ ========= */
+
+const $ = (id)=>document.getElementById(id);
+const N = 7;
+
+const vp = $('vp'), grid = $('grid'), img = $('displayImg'), overlay = $('textOverlay');
+const notice = $('notice'), noticeLink = $('noticeLink');
+const help = $('help'), caption = $('caption');
+const pick = $('pick'), modeSel = $('mode'), tapBtn = $('tapBtn'), autoPairCk = $('autoPair');
+
+const speakJaBtn = $('speakJaBtn'), speakEnBtn = $('speakEnBtn'), explainBtn = $('explainBtn'), openLinkBtn = $('openLinkBtn');
+const prevBtn = $('prevBtn'), nextBtn = $('nextBtn');
+
+let started = false, exploded = false;
+
+function isEvenKey(key){
+  const n = parseInt(key.slice(-2), 10);
+  return !isNaN(n) && n%2===0;
+}
+function imgSrc(key){
+  // あなたの画像名規則（scene_A01.jpg など）
+  return `scene_${key}.jpg`;
+}
+function preload(src){
+  return new Promise(res=>{
+    const i=new Image();
+    i.onload=()=>res(true);
+    i.onerror=()=>res(false);
+    i.src=src;
+  });
+}
+function setCaption(text){
+  caption.textContent = text;
+}
+
+/* ============ 49タイル生成/アニメ ============ */
+function buildTiles(src){
+  grid.innerHTML='';
+  const r = vp.getBoundingClientRect(), W=r.width, H=r.height;
+  const cw=W/N, ch=H/N;
+  for(let y=0;y<N;y++){
+    for(let x=0;x<N;x++){
+      const d=document.createElement('div');
+      d.className='tile';
+      Object.assign(d.style,{
+        left:(x*cw)+'px', top:(y*ch)+'px', width:Math.ceil(cw)+'px', height:Math.ceil(ch)+'px',
+        backgroundImage:`url(${src})`, backgroundSize:`${W}px ${H}px`, backgroundPosition:`-${x*cw}px -${y*ch}px`,
+        transform:'translate(0,0) rotate(0) scale(1)', opacity:'1'
+      });
+      grid.appendChild(d);
+    }
+  }
+  grid.style.display='block';
+  img.style.display='none';
+}
+function explode(){
+  const r=vp.getBoundingClientRect(), W=r.width, H=r.height;
+  for(const d of grid.children){
+    const dx=(Math.random()-.5)*W*1.8, dy=(Math.random()-.5)*H*1.8, rot=(Math.random()-.5)*120;
+    d.style.transitionDelay=(Math.random()*380)+'ms';
+    d.style.transform=`translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${0.9+Math.random()*0.2})`;
+    d.style.opacity='0';
+  }
+}
+function gather(){
+  for(const d of grid.children){
+    d.style.transitionDelay=(Math.random()*180)+'ms';
+    d.style.transform='translate(0,0) rotate(0) scale(1)';
+    d.style.opacity='1';
+  }
+}
+
+/* ============ 表示レンダリング ============ */
+async function render(){
+  if(!started) return;
+
+  const key = pick.value;
+  const mode = String(modeSel.value||'').toLowerCase();
+
+  // 初期化
+  notice.style.display='none';
+  overlay.style.display='none'; overlay.style.opacity='0';
+  grid.style.display='none';
+  img.style.display='none';
+  tapBtn.style.display = isEvenKey(key) ? 'none' : 'block';
+  setCaption(`${key} — ${isEvenKey(key)?'EN Text':'Art (grid)'} | Mode: ${mode.toUpperCase()}`);
+
+  if(mode==='notice'){
+    noticeLink.href = NEXT_LINK_FOR(key);
+    notice.style.display='flex';
+    tapBtn.style.display='none';
+    exploded=false;
+    return;
+  }
+
+  if(isEvenKey(key) || mode==='explain'){
+    // 偶数＝英訳 or 説明のみモード
+    const html = TEXT_DATA[key] || `<p style="color:#bbb">No text for ${key}</p>`;
+    overlay.innerHTML = html;
+    overlay.style.display='flex';
+    requestAnimationFrame(()=> overlay.style.opacity='1');
+    tapBtn.style.display='none';
+    exploded=false;
+  }else{
+    // 奇数＝絵（グリッド）
+    const src = imgSrc(key);
+    if(await preload(src)){
+      buildTiles(src);
+      explode();
+      exploded=true;
+    }else{
+      img.src=src; img.alt=`Failed to load ${src}`;
+      img.style.display='block';
+      tapBtn.style.display='none';
+      exploded=false;
+    }
+  }
+}
+
+/* ============ 音声 / 解説 / ナビ ============ */
+function speak(text, lang){
+  try{
+    if('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text.replace(/<[^>]+>/g,' '));
+      u.lang=lang; u.rate=1; u.pitch=1; u.volume=1;
+      window.speechSynthesis.speak(u);
+      return true;
+    }
+  }catch(_){}
+  return false;
+}
+function getTextEn(){ return TEXT_DATA[pick.value]||''; }
+function getTextJa(){
+  const mp3=AUDIO_JA[pick.value];
+  if(mp3){ new Audio(mp3).play().catch(()=>{}); return ''; }
+  // 暫定：英訳を日本語音声で読み上げ（後で和訳に差し替えてOK）
+  return getTextEn();
+}
+function showNote(){
+  const key=pick.value, note=NOTES_DATA[key];
+  if(!note) return;
+  help.style.display='none';
+  overlay.innerHTML = `<p>${note}</p>`;
+  overlay.style.display='flex';
+  requestAnimationFrame(()=> overlay.style.opacity='1');
+  setTimeout(()=>{
+    overlay.style.opacity='0';
+    setTimeout(()=> overlay.style.display='none', 300);
+  }, 3000);
+}
+function idxOfKey(key){
+  const opts=[...pick.options];
+  return opts.findIndex(o=>o.value===key);
+}
+function keyAt(i){
+  const opts=[...pick.options];
+  if(i<0||i>=opts.length) return null;
+  return opts[i].value;
+}
+function go(offset){
+  const i=idxOfKey(pick.value);
+  const k=keyAt(i+offset);
+  if(!k) return;
+  pick.value=k;
+  render();
+}
+function goPairNext(){
+  // 奇数→偶数→次の奇数…と進む
+  const i=idxOfKey(pick.value);
+  const cur=pick.value;
+  if(isEvenKey(cur)){
+    // 偶数なら次の奇数へ
+    const nextKey = keyAt(i+1) || keyAt(i); // 末尾安全
+    if(nextKey){ pick.value=nextKey; render(); }
+  }else{
+    // 奇数なら隣の偶数へ
+    const evenKey = keyAt(i+1);
+    if(evenKey){ pick.value=evenKey; render(); }
+  }
+}
+
+/* ============ イベント ============ */
+tapBtn.addEventListener('click', ()=>{
+  if(!started){
+    started=true;
+    help.style.display='block';
+    setTimeout(()=> help.style.display='none', 3500);
+    render();
+    return;
+  }
+  if(modeSel.value==='auto' && !isEvenKey(pick.value)){
+    if(exploded) gather(); else explode();
+    exploded=!exploded;
+  }
+});
+
+pick.addEventListener('change', render);
+modeSel.addEventListener('change', render);
+autoPairCk.addEventListener('change', ()=>{ /* 何もしない（トグルだけ） */ });
+
+speakJaBtn.addEventListener('click', ()=>{
+  const t=getTextJa(); if(t) speak(t,'ja-JP');
+});
+speakEnBtn.addEventListener('click', ()=>{
+  const t=getTextEn(); if(t) speak(t,'en-US');
+});
+explainBtn.addEventListener('click', showNote);
+openLinkBtn.addEventListener('click', ()=>{
+  window.open(NEXT_LINK_FOR(pick.value), '_blank', 'noopener');
+});
+
+prevBtn.addEventListener('click', ()=> go(-1));
+nextBtn.addEventListener('click', ()=>{
+  if(autoPairCk.checked) goPairNext(); else go(1);
+});
+
+window.addEventListener('resize', ()=>{ if(started) render(); });
+window.addEventListener('keydown', (e)=>{
+  if(e.key==='ArrowLeft') prevBtn.click();
+  if(e.key==='ArrowRight') nextBtn.click();
+});
+
+/* 初期化：初回レンダリングはTap後 */
+</script>
+</body>
+</html>

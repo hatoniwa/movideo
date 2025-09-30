@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hyakunin Isshu — Ultimate Viewer (MP4-first)</title>
+<style>
+  :root{
+    --w:720px; --fg:#fff; --ui:#1a1a1a; --bd:#333; --acc:#ffd54a;
+    --btn:#ccc; --btnText:#3fa34d; --shadow:0 8px 24px rgba(0,0,0,.35);
+    --aspect:56.25%;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:#101014; color:var(--fg);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", Meiryo, sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:18px;
+  }
+  .app{ width:min(var(--w), 96vw); }
+  .bar{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0 12px; }
+  label, select, button{
+    background:var(--ui); color:#fff; border:1px solid var(--bd); border-radius:10px;
+    padding:8px 12px; font-size:14px;
+  }
+  select,button{ cursor:pointer }
+  .ghost{ opacity:.65 }
+
+  .stage{
+    position:relative; width:100%; border:1px solid #222; border-radius:14px;
+    background:#000; overflow:hidden; box-shadow:var(--shadow);
+  }
+  .stage::before{ content:""; display:block; padding-top:var(--aspect); } /* 16:9 */
+  .viewport{ position:absolute; inset:0; }
+
+  /* 画像フォールバック */
+  #displayImg{ width:100%; height:100%; object-fit:contain; display:none; }
+
+  /* 49タイル（jpg時） */
+  .grid7{ position:absolute; inset:0; display:none; }
+  .grid7 .tile{
+    position:absolute; background-repeat:no-repeat;
+    transition: transform 1.05s ease, opacity 1.05s ease;
+    will-change: transform, opacity;
+  }
+
+  /* 動画（mp4時） */
+  #videoWrap{ position:absolute; inset:0; display:none; }
+  #video{
+    width:100%; height:100%; object-fit:cover; display:block;
+    background:#000;
+  }
+  .videoControls{
+    position:absolute; left:12px; bottom:12px; display:flex; gap:8px; z-index:5;
+    background:rgba(0,0,0,.55); border:1px solid #444; border-radius:10px; padding:6px 8px;
+  }
+  .videoControls button{ background:#1b1b1f; border:1px solid #2f2f33; border-radius:8px; padding:6px 10px; }
+
+  /* テキスト（偶数） */
+  .text-overlay{
+    position:absolute; inset:0; display:none;
+    flex-direction:column; justify-content:center; align-items:center; text-align:center;
+    padding:20px; background:rgba(0,0,0,.72); color:#fff; line-height:1.6; font-size:20px;
+    opacity:0; transition:opacity .45s ease; white-space:pre-line;
+  }
+  .text-overlay p{ margin:0 }
+  .text-overlay .author{ margin-top:10px; color:var(--acc); font-style:italic; font-size:16px }
+
+  /* ツール群 */
+  .tools{ position:absolute; left:12px; top:12px; display:flex; gap:6px; z-index:5; }
+  .tools button{ background:#1b1b1f; border-color:#2f2f33; padding:6px 10px; border-radius:8px; font-size:13px }
+  .nav{ position:absolute; right:12px; top:12px; display:flex; gap:6px; z-index:5; }
+  .nav button{ background:#1b1b1f; border-color:#2f2f33; padding:6px 10px; border-radius:8px; font-size:13px }
+
+  /* ヘルプ / タップ */
+  .help{
+    position:absolute; inset:auto 12px 12px 12px; padding:10px 12px;
+    background:rgba(0,0,0,.65); border:1px solid #444; border-radius:10px; font-size:13px; display:none;
+  }
+  #tapBtn{
+    position:absolute; left:16px; bottom:16px; z-index:6;
+    background:var(--btn); color:var(--btnText); border:1px solid #999; border-radius:10px;
+    font-weight:800; font-size:14px; padding:10px 14px;
+  }
+
+  /* 誘導/キャプション */
+  .notice{
+    position:absolute; inset:0; display:none; flex-direction:column; gap:14px;
+    justify-content:center; align-items:center; text-align:center;
+    background:rgba(0,0,0,.85); color:#fff; font-weight:700; font-size:20px; padding:20px;
+  }
+  .notice a{
+    display:inline-block; padding:10px 14px; border-radius:8px; text-decoration:none;
+    background:var(--btn); color:var(--btnText); border:1px solid #999; font-weight:700;
+  }
+  .caption{
+    position:absolute; left:0; right:0; bottom:0; padding:10px 12px;
+    background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.65) 45%,rgba(0,0,0,.78) 100%);
+    font-size:13px; color:#ddd;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="bar">
+    <label>Pick
+      <select id="pick">
+        <option value="A01">A01 — Komachi (art/mp4)</option>
+        <option value="A02">A02 — Komachi (Text)</option>
+        <option value="A03">A03 — Ryōzen (art/mp4)</option>
+        <option value="A04">A04 — Ryōzen (Text)</option>
+        <option value="A05">A05 — Sosei (art/mp4)</option>
+        <option value="A06">A06 — Sosei (Text)</option>
+        <option value="A07">A07 — Akahito (art/mp4)</option>
+        <option value="A08">A08 — Akahito (Text)</option>
+        <option value="A09">A09 — Atsutada (art/mp4)</option>
+        <option value="A10">A10 — Atsutada (Text)</option>
+        <option value="A11">A11 — Saigyō (art/mp4)</option>
+        <option value="A12">A12 — Saigyō (Text)</option>
+        <option value="A13">A13 — Ōe no Chisato (art/mp4)</option>
+        <option value="A14">A14 — Ōe no Chisato (Text)</option>
+        <option value="A15">A15 — Sagami (art/mp4)</option>
+        <option value="A16" selected>A16 — Sagami (Text)</option>
+      </select>
+    </label>
+
+    <label>Mode
+      <select id="mode">
+        <option value="auto" selected>Auto（odd=video/img / even=text）</option>
+        <option value="explain">Explain only</option>
+        <option value="notice">👉 Check the description</option>
+      </select>
+    </label>
+
+    <label>Lyrics
+      <select id="lyricsMode">
+        <option value="en" selected>English</option>
+        <option value="hira">ひらがな</option>
+      </select>
+    </label>
+
+    <span class="sp"></span>
+    <label class="ghost"><input type="checkbox" id="autoPair" checked /> Pair advance</label>
+  </div>
+
+  <div class="stage">
+    <div class="viewport" id="vp">
+
+      <!-- 左上ツール -->
+      <div class="tools">
+        <button id="speakJaBtn">🔊 JA</button>
+        <button id="speakEnBtn">🔊 EN</button>
+        <button id="explainBtn">ℹ Explain</button>
+        <button id="openLinkBtn">↗ Open</button>
+      </div>
+
+      <!-- 右上ナビ -->
+      <div class="nav">
+        <button id="prevBtn">⏮ Prev</button>
+        <button id="nextBtn">⏭ Next</button>
+      </div>
+
+      <!-- 映像表示（優先） -->
+      <div id="videoWrap">
+        <video id="video" playsinline loop></video>
+        <div class="videoControls" id="vctrl" style="display:none;">
+          <button id="togglePlay">▶/⏸</button>
+          <button id="toggleMute">🔇/🔊</button>
+        </div>
+      </div>
+
+      <!-- 画像フォールバック -->
+      <img id="displayImg" alt="">
+      <div id="grid" class="grid7"></div>
+
+      <!-- テキスト -->
+      <div id="textOverlay" class="text-overlay"></div>
+
+      <div id="help" class="help">
+        Tap「Tap Here」to start.  
+        With odd items: video (if exists) or exploding image. Even items: EN / ひらがな text, 🔊 to listen.
+      </div>
+
+      <button id="tapBtn" type="button">Tap Here</button>
+
+      <div class="notice" id="notice">
+        👉 This is not the end!<br>
+        Please open the description link below.
+        <a id="noticeLink"     
+  href="https://youtube.com/shorts/ZBwZzelO6OQ?si=NhFWI1p9wsGIZ-yX"                 
+  target="_blank" rel="noopener">Open Interactive Page ↗</a>
+      </div>
+
+      <div id="caption" class="caption"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========= コンテンツ（第二部Bから継承） ========= */
+const TEXT_EN = {
+  "A02": `The colors of flowers fade away in vain,
+as in this fleeting world my life drifts on in rains.
+— Ono no Komachi`,
+  "A04": `Lonely, I stepped outside my hut and looked—
+everywhere the same: an autumn evening.
+— Ryōzen Hōshi`,
+  "A06": `“I'll come tonight,” you said — so I stayed awake,
+waiting for the long-month's dawning moon.
+— Sosei Hōshi`,
+  "A08": `At Tago Bay I came out and beheld:
+pure white snow on Fuji’s lofty peak.
+— Yamabe no Akahito`,
+  "A10": `Compared with how my heart has been since we met,
+in former days I scarcely knew longing.
+— Fujiwara no Atsutada`,
+  "A12": `“Lament!”—does the moon make me grieve?
+No—my tears themselves blame the moon.
+— Saigyō`,
+  "A14": `Seeing the moon, a thousand sorrows surge—
+though autumn is not mine alone.
+— Ōe no Chisato`,
+  "A16": `Weary of resentment, though even dry sleeves remain,
+my name will wither away in love’s decay.
+— Sagami`
+};
+const TEXT_HIRA = {
+  "A02": `はなのいろは うつりにけりな いたづらに
+わがみよにふる ながめせしまに
+— おののこまち`,
+  "A04": `さびしさに やどをたちいでて ながむれば
+いづこもおなじ あきのゆうぐれ
+— りょうぜんほうし`,
+  "A06": `いまこむと いひしばかりに ながつきの
+ありあけのつきを まちいでつるかな
+— そせいほうし`,
+  "A08": `たごのうらに うちいでてみれば しろたえの
+ふじのたかねに ゆきはふりつつ
+— やまべのあかひと`,
+  "A10": `あひみての のちのこころに くらぶれば
+むかしはものを おもはざりけり
+— ふじわらのあつただ`,
+  "A12": `なげけとて つきやはものを おもはする
+かこちがおなる わがなみだかな
+— さいぎょう`,
+  "A14": `つきみれば ちぢにものこそ かなしけれ
+わがみひとつの あきにはあらねど
+— おおえのちさと`,
+  "A16": `うらみわび ほさぬそでだに あるものを
+こいにくちなむ なこそをしけれ
+— さがみ`
+};
+const NOTES = {
+  "A02": "無常（色あせ）＝人生のはかなさを重ねる小町の歌。",
+  "A04": "庵から外へ一歩…世界のどこも同じ“秋の夕暮”。",
+  "A06": "「今夜行く」の言葉を信じて長月の有明月を待つ恋。",
+  "A08": "田子の浦から仰ぐ富士—清冽な白雪の美の驚き。",
+  "A10": "逢瀬以後、恋の重さを知る—昔は知らなかった“思い”。",
+  "A12": "悲しみの原因は月？ それとも自らの心？ 投影の歌。",
+  "A14": "私ひとりの秋ではない—私情と普遍の季節の共鳴。",
+  "A16": "恋に朽ちゆく名—--評判も心も、恋の荒波で。"
+};
+const AUDIO_JA = { /* 任意：直リンクを入れるとJAボタンで優先再生 */ };
+
+const NEXT_LINK_FOR = (key)=> "https://youtube.com/shorts/ZBwZzelO6OQ?si=NhFWI1p9wsGIZ-yX ";
+
+/* ========= ユーティリティ ========= */
+const $ = (id)=>document.getElementById(id);
+const N = 7;
+const vp=$('vp'), grid=$('grid'), img=$('displayImg'), overlay=$('textOverlay');
+const videoWrap=$('videoWrap'), video=$('video'), vctrl=$('vctrl');
+const notice=$('notice'), noticeLink=$('noticeLink'), help=$('help'), caption=$('caption');
+const pick=$('pick'), modeSel=$('mode'), tapBtn=$('tapBtn'), autoPairCk=$('autoPair'), lyricsMode=$('lyricsMode');
+const speakJaBtn=$('speakJaBtn'), speakEnBtn=$('speakEnBtn'), explainBtn=$('explainBtn'), openLinkBtn=$('openLinkBtn');
+const prevBtn=$('prevBtn'), nextBtn=$('nextBtn');
+const togglePlayBtn=$('togglePlay'), toggleMuteBtn=$('toggleMute');
+
+let started=false, exploded=false;
+
+function isEvenKey(key){ const n=parseInt(key.slice(-2),10); return !isNaN(n)&&n%2===0; }
+function mp4Src(key){ return `scene_${key}.mp4`; }
+function jpgSrc(key){ return `scene_${key}.jpg`; }
+function preloadImg(src){
+  return new Promise(res=>{ const i=new Image(); i.onload=()=>res(true); i.onerror=()=>res(false); i.src=src; });
+}
+function checkVideo(src){
+  return new Promise(res=>{
+    const v=document.createElement('video');
+    v.preload='metadata'; v.src=src; v.onloadedmetadata=()=>res(true); v.onerror=()=>res(false);
+  });
+}
+function setCaptionText(t){ caption.textContent=t; }
+
+/* ====== 49タイル（jpgフォールバック時） ====== */
+function buildTiles(src){
+  grid.innerHTML='';
+  const r=vp.getBoundingClientRect(), W=r.width, H=r.height, cw=W/N, ch=H/N;
+  for(let y=0;y<N;y++){
+    for(let x=0;x<N;x++){
+      const d=document.createElement('div'); d.className='tile';
+      Object.assign(d.style,{
+        left:(x*cw)+'px', top:(y*ch)+'px', width:Math.ceil(cw)+'px', height:Math.ceil(ch)+'px',
+        backgroundImage:`url(${src})`, backgroundSize:`${W}px ${H}px`, backgroundPosition:`-${x*cw}px -${y*ch}px`,
+        transform:'translate(0,0) rotate(0) scale(1)', opacity:'1'
+      });
+      grid.appendChild(d);
+    }
+  }
+  grid.style.display='block'; img.style.display='none';
+}
+function explode(){
+  const r=vp.getBoundingClientRect(), W=r.width, H=r.height;
+  for(const d of grid.children){
+    const dx=(Math.random()-.5)*W*1.8, dy=(Math.random()-.5)*H*1.8, rot=(Math.random()-.5)*120;
+    d.style.transitionDelay=(Math.random()*380)+'ms';
+    d.style.transform=`translate(${dx}px,${dy}px) rotate(${rot}deg) scale(${0.9+Math.random()*0.2})`;
+    d.style.opacity='0';
+  }
+}
+function gather(){
+  for(const d of grid.children){
+    d.style.transitionDelay=(Math.random()*180)+'ms';
+    d.style.transform='translate(0,0) rotate(0) scale(1)';
+    d.style.opacity='1';
+  }
+}
+
+/* ====== テキスト ====== */
+function textFor(key){
+  return (lyricsMode.value==='hira' ? (TEXT_HIRA[key]||'(ひらがな未登録)') : (TEXT_EN[key]||'(No English text)'));
+}
+
+/* ====== レンダリング ====== */
+async function render(){
+  if(!started) return;
+  const key=pick.value, mode=String(modeSel.value||'').toLowerCase();
+
+  // reset
+  notice.style.display='none';
+  overlay.style.display='none'; overlay.style.opacity='0';
+  grid.style.display='none'; img.style.display='none';
+  videoWrap.style.display='none'; vctrl.style.display='none';
+  if(!isEvenKey(key)) tapBtn.style.display='block';
+
+  setCaptionText(`${key} — ${isEvenKey(key)?`Text [${lyricsMode.value}]`:'Visual'} | Mode: ${mode.toUpperCase()}`);
+
+  if(mode==='notice'){
+    noticeLink.href = NEXT_LINK_FOR(key);
+    notice.style.display='flex'; tapBtn.style.display='none'; exploded=false; return;
+  }
+
+  if(isEvenKey(key) || mode==='explain'){
+    overlay.innerHTML = `<p>${textFor(key).replace(/\n/g,'<br>')}</p>`;
+    overlay.style.display='flex';
+    requestAnimationFrame(()=> overlay.style.opacity='1');
+    tapBtn.style.display='none'; exploded=false; return;
+  }
+
+  // 奇数：まず mp4 を探す → なければ jpg 爆散
+  const vsrc = mp4Src(key);
+  if(await checkVideo(vsrc)){
+    // 動画モード
+    video.src = vsrc;
+    videoWrap.style.display='block';
+    vctrl.style.display='flex';
+    // Tap後なので自動再生OK（モバイルは muted 必須）
+    try{ await video.play(); }catch(_){}
+    tapBtn.style.display='none'; // 動画はタップ不要
+    exploded=false;
+  }else{
+    // 画像モード（従来どおり）
+    const src = jpgSrc(key);
+    if(await preloadImg(src)){
+      buildTiles(src);
+      explode(); exploded=true;
+    }else{
+      img.src=src; img.alt=`Failed to load ${src}`;
+      img.style.display='block'; tapBtn.style.display='none'; exploded=false;
+    }
+  }
+}
+
+/* ====== 音声 / 解説 / ナビ ====== */
+function speak(text, lang){
+  try{
+    if('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text.replace(/<[^>]+>/g,' '));
+      u.lang=lang; u.rate=1; u.pitch=1; u.volume=1; window.speechSynthesis.speak(u); return true;
+    }
+  }catch(_){}
+  return false;
+}
+function getTextEn(){ return TEXT_EN[pick.value]||''; }
+function getTextHira(){ return TEXT_HIRA[pick.value]||''; }
+function showNote(){
+  const note = NOTES[pick.value]; if(!note) return;
+  overlay.innerHTML = `<p>${note}</p>`; overlay.style.display='flex';
+  requestAnimationFrame(()=> overlay.style.opacity='1');
+  setTimeout(()=>{ overlay.style.opacity='0'; setTimeout(()=> overlay.style.display='none', 300); }, 3000);
+}
+function idx(){ return [...pick.options].findIndex(o=>o.value===pick.value); }
+function keyAt(i){ const opts=[...pick.options]; return (i<0||i>=opts.length)?null:opts[i].value; }
+function go(off){ const k=keyAt(idx()+off); if(!k) return; pick.value=k; render(); }
+
+// 各表示要素を一度に非表示にする関数
+function resetUI() {
+  notice.style.display = 'none';
+  overlay.style.display = 'none';
+  overlay.style.opacity = '0';
+  grid.style.display = 'none';
+  img.style.display = 'none';
+  videoWrap.style.display = 'none';
+  vctrl.style.display = 'none';
+  tapBtn.style.display = 'none';
+}
+
+// 動画モードのUIを設定する関数
+function setVideoMode(key, src) {
+  resetUI();
+  video.src = src;
+  videoWrap.style.display = 'block';
+  vctrl.style.display = 'flex';
+  setCaptionText(`${key} — Visual | Mode: AUTO`);
+  try {
+    video.play();
+  } catch (_) {}
+}
+
+// 画像モードのUIを設定する関数
+function setGridMode(key, src) {
+  resetUI();
+  buildTiles(src);
+  explode();
+  exploded = true;
+  tapBtn.style.display = 'block'; // 画像爆散はタップで制御
+  setCaptionText(`${key} — Visual | Mode: AUTO`);
+}
+
+// テキストモードのUIを設定する関数
+function setTextMode(key) {
+  resetUI();
+  overlay.innerHTML = `<p>${textFor(key).replace(/\n/g, '<br>')}</p>`;
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => overlay.style.opacity = '1');
+  setCaptionText(`${key} — Text [${lyricsMode.value}] | Mode: AUTO`);
+}
+
+// 通知モードのUIを設定する関数
+function setNoticeMode(key) {
+  resetUI();
+  noticeLink.href = NEXT_LINK_FOR(key);
+  notice.style.display = 'flex';
+  exploded = false;
+  setCaptionText(`${key} — Text [${lyricsMode.value}] | Mode: NOTICE`);
+}
+
+async function render() {
+  if (!started) return;
+  const key = pick.value;
+  const mode = String(modeSel.value || '').toLowerCase();
+
+  // まず、UIをリセット
+  resetUI();
+
+  // モードごとの処理
+  if (mode === 'notice') {
+    setNoticeMode(key);
+    return;
+  }
+  if (isEvenKey(key) || mode === 'explain') {
+    setTextMode(key);
+    return;
+  }
+
+  // 奇数番（動画・画像）の処理
+  const vsrc = mp4Src(key);
+  const jsrc = jpgSrc(key);
+
+  // 1. まず動画の存在をチェック
+  const videoExists = await checkVideo(vsrc);
+  if (videoExists) {
+    setVideoMode(key, vsrc);
+    return; // ここで処理を終了
+  }
+
+  // 2. 動画がなければ画像の存在をチェック
+  const imageExists = await preloadImg(jsrc);
+  if (imageExists) {
+    setGridMode(key, jsrc);
+  } else {
+    // 画像もなければ、画像フォールバックとしてimgタグを表示
+    resetUI();
+    img.src = jsrc;
+    img.alt = `Failed to load ${jsrc}`;
+    img.style.display = 'block';
+    setCaptionText(`${key} — Image not found`);
+  }
+}
+
+function goPairNext(){
+  const i=idx(), cur=pick.value;
+  if(isEvenKey(cur)){ const k=keyAt(i+1)||keyAt(i); if(k){pick.value=k; render();} }
+  else{ const k=keyAt(i+1); if(k){pick.value=k; render();} }
+}
+
+/* ====== イベント ====== */
+tapBtn.addEventListener('click', ()=>{
+  if(!started){
+    started=true; help.style.display='block'; setTimeout(()=>help.style.display='none', 3500); render(); return;
+  }
+  if(modeSel.value==='auto' && !isEvenKey(pick.value) && grid.style.display==='block'){
+    if(exploded) gather(); else explode(); exploded=!exploded;
+  }
+});
+pick.addEventListener('change', render);
+modeSel.addEventListener('change', render);
+lyricsMode.addEventListener('change', render);
+$('openLinkBtn').addEventListener('click', ()=> window.open(NEXT_LINK_FOR(pick.value),'_blank','noopener'));
+$('explainBtn').addEventListener('click', showNote);
+
+$('speakJaBtn').addEventListener('click', ()=>{
+  const key=pick.value, mp3=AUDIO_JA[key];
+  if(mp3){ new Audio(mp3).play().catch(()=>{}); return; }
+  // “日本語風に英語を読む”継承：現在表示モードに合わせて
+  const t = (lyricsMode.value==='hira') ? getTextHira() : getTextEn();
+  speak(t,'ja-JP');
+});
+$('speakEnBtn').addEventListener('click', ()=> speak(getTextEn(),'en-US'));
+
+$('prevBtn').addEventListener('click', ()=> go(-1));
+$('nextBtn').addEventListener('click', ()=>{ autoPairCk.checked ? goPairNext() : go(1); });
+
+/* 動画コントロール */
+togglePlayBtn.addEventListener('click', ()=>{
+  if(video.paused){ video.play().catch(()=>{}); } else { video.pause(); }
+});
+toggleMuteBtn.addEventListener('click', ()=>{ video.muted = !video.muted; });
+
+window.addEventListener('resize', ()=>{ if(started) render(); });
+window.addEventListener('keydown', (e)=>{
+  if(e.key==='ArrowLeft') $('prevBtn').click();
+  if(e.key==='ArrowRight') $('nextBtn').click();
+});
+</script>
+</body>
+</html>
