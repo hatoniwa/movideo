@@ -77,4 +77,10 @@ Built entirely with:
 
 ---
 
+## 📖 Documentation / ドキュメント
+
+- [File Backup Guide / ファイルバックアップガイド](docs/backup-guide.md) - How to transfer files from your device's download folder (`~/storage/downloads`) to another device for backup purposes.
+
+---
+
 ## 📁 ディレクトリ構成
