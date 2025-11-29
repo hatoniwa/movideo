@@ -77,4 +77,12 @@ Built entirely with:
 
 ---
 
+## 📱 Termuxガイド
+
+Termuxを使ってAndroid端末からファイルをアップロードする方法については、以下のガイドをご覧ください：
+
+👉 [Termuxを使ったファイルアップロードガイド](docs/termux-upload-guide.md)
+
+---
+
 ## 📁 ディレクトリ構成
